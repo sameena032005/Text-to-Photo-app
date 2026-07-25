@@ -1,35 +1,88 @@
 import { motion } from 'framer-motion'
 import { Download, RefreshCw, Share2 } from 'lucide-react'
+import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+
+/** Detect if running inside the Flutter WebView shell */
+function isFlutter() {
+  return typeof window !== 'undefined' &&
+    (typeof window.FlutterDownload !== 'undefined' ||
+     typeof window.FlutterShare !== 'undefined')
+}
 
 export default function VideoPlayer() {
   const { videoUrl, generate, isGenerating, prompt, settings } = useApp()
   const isDark = settings.theme === 'dark'
+  const [toast, setToast] = useState('')
 
   if (!videoUrl) return null
 
   const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(videoUrl)
   const ext = isVideo ? 'mp4' : 'png'
+  const fileName = `ai-photo-${Date.now()}.${ext}`
 
-  const handleDownload = () => {
-    const a = document.createElement('a')
-    a.href = videoUrl
-    a.download = `ai-photo-${Date.now()}.${ext}`
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    a.click()
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
   }
 
-  const handleShare = async () => {
+  // ── Download ────────────────────────────────────────────────────────────────
+  async function handleDownload() {
+    if (isFlutter()) {
+      // Hand off to Flutter — saves to Pictures/AIPhotoGenerator on device
+      window.FlutterDownload.postMessage(videoUrl)
+      return
+    }
+
+    // Web fallback: fetch as blob so browser triggers Save dialog
+    try {
+      const resp = await fetch(videoUrl)
+      const blob = await resp.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      showToast('Download started!')
+    } catch {
+      // Fallback to direct link if CORS blocks fetch
+      const a    = document.createElement('a')
+      a.href     = videoUrl
+      a.download = fileName
+      a.target   = '_blank'
+      a.click()
+    }
+  }
+
+  // ── Share ───────────────────────────────────────────────────────────────────
+  async function handleShare() {
+    if (isFlutter()) {
+      // Hand off to Flutter — opens native Android share sheet with ALL apps
+      window.FlutterShare.postMessage(videoUrl)
+      return
+    }
+
+    // Web: use Web Share API (mobile browsers) or clipboard fallback
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'AI Generated Photo', text: prompt, url: videoUrl })
+        await navigator.share({
+          title: 'AI Generated Photo',
+          text: `Check out this AI photo I created: "${prompt}"`,
+          url: videoUrl,
+        })
       } catch {
         /* user cancelled */
       }
     } else {
-      await navigator.clipboard.writeText(videoUrl)
-      alert('Image URL copied to clipboard!')
+      try {
+        await navigator.clipboard.writeText(videoUrl)
+        showToast('Image URL copied to clipboard!')
+      } catch {
+        showToast('Share not supported in this browser.')
+      }
     }
   }
 
@@ -41,6 +94,7 @@ export default function VideoPlayer() {
         isDark ? 'bg-ai-card shadow-black/40' : 'bg-white shadow-gray-200/80'
       }`}
     >
+      {/* Image / Video */}
       <div className="relative w-full bg-black" style={{ minHeight: '300px' }}>
         {isVideo ? (
           <video
@@ -61,9 +115,31 @@ export default function VideoPlayer() {
         )}
       </div>
 
+      {/* Toast notification */}
+      {toast && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-4 mt-3 rounded-xl bg-violet-600/20 border border-violet-500/30 px-4 py-2.5 text-sm text-violet-300 text-center"
+        >
+          {toast}
+        </motion.div>
+      )}
+
+      {/* Action buttons */}
       <div className="flex flex-wrap gap-3 p-4 sm:p-6">
-        <ActionButton icon={Download} label="Download" onClick={handleDownload} isDark={isDark} />
-        <ActionButton icon={Share2} label="Share" onClick={handleShare} isDark={isDark} />
+        <ActionButton
+          icon={Download}
+          label="Download"
+          onClick={handleDownload}
+          isDark={isDark}
+        />
+        <ActionButton
+          icon={Share2}
+          label="Share"
+          onClick={handleShare}
+          isDark={isDark}
+        />
         <ActionButton
           icon={RefreshCw}
           label="Regenerate"

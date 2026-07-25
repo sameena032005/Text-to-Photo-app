@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Temp directory for sharing -->
+    <cache-path name="cache" path="."/>
+    <!-- App internal files -->
+    <files-path name="files" path="."/>
+    <!-- External storage for downloads -->
+    <external-path name="external" path="."/>
+    <external-files-path name="external_files" path="."/>
+</paths>

@@ -4,10 +4,6 @@ Shared pytest fixtures for all test suites.
 import os
 import pytest
 import requests
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
 from faker import Faker
 
 BASE_URL = os.getenv("APP_URL", "http://localhost:5173")
@@ -15,9 +11,9 @@ API_URL  = os.getenv("API_URL",  "http://localhost:8000")
 fake     = Faker()
 
 
-@pytest.fixture(scope="session")
-def chrome_options():
-    opts = ChromeOptions()
+def get_chrome_options():
+    from selenium.webdriver.chrome.options import Options
+    opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
@@ -25,14 +21,22 @@ def chrome_options():
     opts.add_argument("--window-size=1280,800")
     opts.add_argument("--disable-web-security")
     opts.add_argument("--allow-running-insecure-content")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--remote-debugging-port=9222")
     opts.set_capability("goog:loggingPrefs", {"browser": "ALL"})
     return opts
 
 
 @pytest.fixture(scope="function")
-def driver(chrome_options):
-    service = ChromeService(ChromeDriverManager().install())
-    drv = webdriver.Chrome(service=service, options=chrome_options)
+def driver():
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        service = Service(ChromeDriverManager().install())
+    except Exception:
+        service = Service()
+    drv = webdriver.Chrome(service=service, options=get_chrome_options())
     drv.implicitly_wait(10)
     drv.set_page_load_timeout(30)
     yield drv
@@ -40,9 +44,15 @@ def driver(chrome_options):
 
 
 @pytest.fixture(scope="session")
-def driver_session(chrome_options):
-    service = ChromeService(ChromeDriverManager().install())
-    drv = webdriver.Chrome(service=service, options=chrome_options)
+def driver_session():
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        service = Service(ChromeDriverManager().install())
+    except Exception:
+        service = Service()
+    drv = webdriver.Chrome(service=service, options=get_chrome_options())
     drv.implicitly_wait(10)
     drv.set_page_load_timeout(30)
     yield drv
