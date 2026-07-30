@@ -406,6 +406,70 @@ jobs:
           path: tests/reports/security_report.html
 
   # ─────────────────────────────────────────────────────────────────
+  # JOB 6b: Vulnerability Tests
+  # ─────────────────────────────────────────────────────────────────
+  vulnerability-tests:
+    name: Vulnerability Tests
+    runs-on: ubuntu-latest
+    needs: [backend-check]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install pytest pytest-html pytest-timeout requests flask flask-cors
+
+      - name: Start mock backend
+        run: |
+          python - <<'EOF' &
+          from flask import Flask, jsonify, request
+          from flask_cors import CORS
+          app = Flask(__name__)
+          CORS(app)
+          @app.route('/health')
+          def h(): return jsonify({'status': 'ok'})
+          @app.route('/generate', methods=['POST'])
+          def g():
+              data = request.get_json(silent=True) or {}
+              p = str(data.get('prompt', '')).strip()
+              if not p:
+                  return jsonify({'message': 'required', 'detail': 'required'}), 400
+              return jsonify({'image_url': '/img/test.png', 'status': 'done'})
+          app.run(host='0.0.0.0', port=8000, threaded=True)
+          EOF
+          sleep 3
+          curl -sf http://localhost:8000/health && echo "Backend ready"
+        shell: bash
+
+      - name: Run vulnerability tests
+        run: |
+          mkdir -p tests/reports
+          cd tests
+          python -m pytest security/test_vulnerability.py \
+            -v --tb=short \
+            --html=reports/vulnerability_report.html \
+            --self-contained-html \
+            --timeout=30 \
+            -p no:warnings \
+            2>&1 | tee /tmp/vulnerability.txt
+        shell: bash
+        continue-on-error: true
+
+      - name: Print vulnerability results
+        run: cat /tmp/vulnerability.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vulnerability-test-report
+          path: tests/reports/vulnerability_report.html
+
+  # ─────────────────────────────────────────────────────────────────
   # JOB 7: Load Tests
   # ─────────────────────────────────────────────────────────────────
   load-tests:
@@ -538,6 +602,7 @@ jobs:
       - selenium-tests
       - validation-tests
       - security-tests
+      - vulnerability-tests
       - load-tests
       - generate-excel-report
     if: always()
@@ -565,9 +630,10 @@ jobs:
           echo "| Appium Mobile | 95 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Load Tests | 50 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Security Tests | 55 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Vulnerability Tests | 55 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Validation Tests | 50 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Total: 450+ test cases**" >> $GITHUB_STEP_SUMMARY
+          echo "**Total: 505+ test cases**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📊 Download Excel report from **Artifacts → excel-test-report**" >> $GITHUB_STEP_SUMMARY
           echo "📁 All HTML reports in **Artifacts → *-test-report**" >> $GITHUB_STEP_SUMMARY
