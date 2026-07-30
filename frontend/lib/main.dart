@@ -92,45 +92,71 @@ class _WebAppShellState extends State<WebAppShell> {
     setState(() => _actionInProgress = true);
 
     try {
-      _showSnackbar('Starting download...');
+      _showSnackbar('⏳ Downloading image...');
 
-      // Request permission
-      PermissionStatus status = await Permission.storage.request();
-      if (!status.isGranted) {
-        // Android 13+ uses media permissions
-        status = await Permission.photos.request();
+      // ── Step 1: Request correct permission based on Android version ──────
+      bool permissionGranted = false;
+
+      if (Platform.isAndroid) {
+        // Android 13+ (API 33+) → use READ_MEDIA_IMAGES
+        final photosStatus = await Permission.photos.request();
+        if (photosStatus.isGranted) {
+          permissionGranted = true;
+        } else {
+          // Android 10-12 → use WRITE_EXTERNAL_STORAGE
+          final storageStatus = await Permission.storage.request();
+          permissionGranted = storageStatus.isGranted;
+        }
+      } else {
+        permissionGranted = true;
       }
 
-      if (!status.isGranted) {
-        _showSnackbar('Storage permission denied. Please allow in Settings.');
+      if (!permissionGranted) {
+        _showSnackbar('❌ Permission denied. Enable storage in App Settings.');
+        await openAppSettings();
         return;
       }
 
-      // Get downloads directory
-      Directory? saveDir;
+      // ── Step 2: Download to temp dir first ───────────────────────────────
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'ai_photo_${DateTime.now().millisecondsSinceEpoch}.png';
+      final tempPath = '${tempDir.path}/$fileName';
+
+      await Dio().download(
+        imageUrl,
+        tempPath,
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+      );
+
+      // ── Step 3: Copy to Pictures/AIPhotoGenerator ────────────────────────
+      Directory saveDir;
       if (Platform.isAndroid) {
-        // Save to Pictures/AIPhotoGenerator on Android
         saveDir = Directory('/storage/emulated/0/Pictures/AIPhotoGenerator');
-        if (!await saveDir.exists()) {
-          await saveDir.create(recursive: true);
-        }
       } else {
         saveDir = await getApplicationDocumentsDirectory();
       }
 
-      final fileName = 'ai_photo_${DateTime.now().millisecondsSinceEpoch}.png';
-      final filePath = '${saveDir.path}/$fileName';
+      if (!await saveDir.exists()) {
+        await saveDir.create(recursive: true);
+      }
 
-      // Download using Dio
-      await Dio().download(imageUrl, filePath,
-        onReceiveProgress: (received, total) {
-          // Progress is silent — snackbar shown on completion
-        },
-      );
+      final finalPath = '${saveDir.path}/$fileName';
+      await File(tempPath).copy(finalPath);
 
-      _showSnackbar('✅ Saved to Pictures/AIPhotoGenerator/$fileName');
+      // ── Step 4: Notify media scanner so it appears in Gallery ────────────
+      if (Platform.isAndroid) {
+        await Process.run('am', [
+          'broadcast',
+          '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+          '-d', 'file://$finalPath',
+        ]);
+      }
+
+      _showSnackbar('✅ Saved to Gallery → Pictures/AIPhotoGenerator/$fileName');
+    } on DioException catch (e) {
+      _showSnackbar('❌ Download failed: ${e.message}');
     } catch (e) {
-      _showSnackbar('Download failed: ${e.toString()}');
+      _showSnackbar('❌ Error: ${e.toString()}');
     } finally {
       setState(() => _actionInProgress = false);
     }
@@ -142,26 +168,38 @@ class _WebAppShellState extends State<WebAppShell> {
     setState(() => _actionInProgress = true);
 
     try {
-      _showSnackbar('Preparing to share...');
+      _showSnackbar('⏳ Preparing share...');
 
-      // Download image to temp directory first
+      // Download image to temp directory
       final tempDir = await getTemporaryDirectory();
       final fileName = 'ai_photo_share_${DateTime.now().millisecondsSinceEpoch}.png';
       final filePath = '${tempDir.path}/$fileName';
 
-      await Dio().download(imageUrl, filePath);
+      await Dio().download(
+        imageUrl,
+        filePath,
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+      );
 
-      final xFile = XFile(filePath, mimeType: 'image/png');
+      final xFile = XFile(filePath, mimeType: 'image/png', name: fileName);
 
-      // Open native share sheet — shows ALL share options (WhatsApp, Gmail,
-      // Instagram, Telegram, Bluetooth, Copy, Save to Drive, etc.)
-      await Share.shareXFiles(
+      // Opens Android native share sheet with ALL installed apps:
+      // WhatsApp, Telegram, Instagram, Gmail, Bluetooth, Drive, etc.
+      final result = await Share.shareXFiles(
         [xFile],
-        text: 'Check out this AI generated photo! 🎨',
+        text: '🎨 Check out this AI generated photo!',
         subject: 'AI Photo Generator',
       );
+
+      if (result.status == ShareResultStatus.success) {
+        _showSnackbar('✅ Shared successfully!');
+      } else if (result.status == ShareResultStatus.dismissed) {
+        _showSnackbar('Share cancelled.');
+      }
+    } on DioException catch (e) {
+      _showSnackbar('❌ Could not load image: ${e.message}');
     } catch (e) {
-      _showSnackbar('Share failed: ${e.toString()}');
+      _showSnackbar('❌ Share failed: ${e.toString()}');
     } finally {
       setState(() => _actionInProgress = false);
     }
