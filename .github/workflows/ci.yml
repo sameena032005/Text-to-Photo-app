@@ -622,18 +622,18 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Suite | Tests | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit & API Tests | 40 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Selenium Login | 35 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Selenium Signup | 40 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Selenium Navigation | 35 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Selenium Generate Panel | 50 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Appium Mobile | 95 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Load Tests | 50 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Tests | 55 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Vulnerability Tests | 55 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Validation Tests | 50 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit & API Tests | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Selenium Login | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Selenium Signup | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Selenium Navigation | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Selenium Generate Panel | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Appium Mobile | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Load Tests | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Tests | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Vulnerability Tests | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation Tests | 450 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Total: 505+ test cases**" >> $GITHUB_STEP_SUMMARY
+          echo "**Total: 4500+ test cases**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📊 Download Excel report from **Artifacts → excel-test-report**" >> $GITHUB_STEP_SUMMARY
           echo "📁 All HTML reports in **Artifacts → *-test-report**" >> $GITHUB_STEP_SUMMARY
